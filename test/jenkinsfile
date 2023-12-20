@@ -1,0 +1,45 @@
+pipeline {
+    agent any
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git 'https://seu-repositorio-git.git'
+            }
+        }
+
+        stage('Build and Deploy') {
+            steps {
+                script {
+                    docker.image('python:3.9').inside {
+                        sh 'pip install flask'
+                        sh 'echo "from flask import Flask\\napp = Flask(__name__)\\n@app.route(\\"/\\")\\ndef hello():\\n    return \\"Hello, World!\\"" > app.py'
+                        sh 'echo "FROM python:3.9\\nCOPY . /app\\nWORKDIR /app\\nRUN pip install -r requirements.txt\\nEXPOSE 8080\\nCMD [\\"python\\", \\"app.py\\"]" > Dockerfile'
+                        sh 'docker build -t meu-app:latest .'
+                    }
+                }
+
+                // Executar o contêiner Docker e aguardar até que esteja pronto
+                sh 'docker run -d -p 8080:8080 meu-app:latest'
+                sleep 10  // Aguarda 10 segundos (ajuste conforme necessário)
+                
+                // Obter o ID do contêiner
+                def containerId = sh(script: 'docker ps -q', returnStdout: true).trim()
+                
+                // Obter o IP do contêiner
+                def containerIp = sh(script: 'docker inspect -f "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}" ' + containerId, returnStdout: true).trim()
+                
+                echo "Aplicativo em execução em http://${containerIp}:8080"
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Pipeline concluído com sucesso!'
+        }
+        failure {
+            echo 'Houve uma falha no pipeline. Verifique os logs para mais informações.'
+        }
+    }
+}
