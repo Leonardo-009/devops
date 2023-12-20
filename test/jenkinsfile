@@ -4,7 +4,7 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                git 'https://seu-repositorio-git.git'
+                git 'https://github.com/Leonardo-009/devops'
             }
         }
 
@@ -20,16 +20,21 @@ pipeline {
                 }
 
                 // Executar o contêiner Docker e aguardar até que esteja pronto
-                sh 'docker run -d -p 8080:8080 meu-app:latest'
-                sleep 10  // Aguarda 10 segundos (ajuste conforme necessário)
+                script {
+                    sh 'docker run -d -p 9099:9099 meu-app:latest'
+                    sleep 10  // Aguarda 10 segundos (ajuste conforme necessário)
+
+                    // Obter o ID do contêiner
+                    def containerId = sh(script: 'docker ps -q', returnStatus: true).trim()
+
+                    // Obter o IP do contêiner
+                    def containerIp = sh(script: "docker inspect --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ${containerId}", returnStatus: true).trim()
+
+                    echo "Aplicativo em execução em http://${containerIp}:8080"
+                }
                 
-                // Obter o ID do contêiner
-                def containerId = sh(script: 'docker ps -q', returnStdout: true).trim()
-                
-                // Obter o IP do contêiner
-                def containerIp = sh(script: 'docker inspect -f "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}" ' + containerId, returnStdout: true).trim()
-                
-                echo "Aplicativo em execução em http://${containerIp}:8080"
+                // Iniciar o serviço Docker
+                sh 'sudo service docker start'  // ou 'sudo systemctl start docker'
             }
         }
     }
